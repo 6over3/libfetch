@@ -1,0 +1,50 @@
+name: Build and Test (No-TLS)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/reusable-build.yml'
+      - '.github/workflows/build-no-tls.yml'
+  pull_request:
+    branches: [ "main", "master" ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/reusable-build.yml'
+      - '.github/workflows/build-no-tls.yml'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        required: false
+        type: choice
+        default: "Release"
+        description: "Build type"
+        options:
+          - "Release"
+          - "Debug"
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-x86_64 # x86_64
+          - windows-x86_64 # x86_64
+          - macos-13 # x86_64
+          - macos-latest # arm64
+          - linux-arm64
+          - win-arm64
+
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      runner: ${{ matrix.runner }}
+      tls_enabled: false
+      build_type: ${{ github.event_name == 'workflow_dispatch' && inputs.build_type || 'Release' }}

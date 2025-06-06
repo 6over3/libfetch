@@ -1,0 +1,56 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Temporary files
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+.clangd/
+compile_commands.json
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Core dumps
+core
+core.*
+
+# Dependency files
+*.d
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Log files
+*.log 
+build-win
+build-macos
+test_cookies.txt
+*.tmp
+Testing

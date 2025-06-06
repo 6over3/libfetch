@@ -1,0 +1,43 @@
+# Doxyfile configuration for libfetch
+
+# Project information
+PROJECT_NAME           = "libfetch"
+PROJECT_NUMBER         = @PROJECT_VERSION@
+PROJECT_BRIEF          = "A lightweight asynchronous HTTP/1.1 client library implementing a subset of the WHATWG Fetch API."
+
+# Input/Output
+INPUT                  = @CMAKE_CURRENT_SOURCE_DIR@/src
+OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@/docs
+RECURSIVE              = YES
+
+# HTML output
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = YES
+HTML_EXTRA_STYLESHEET  = @AWESOME_CSS_DIR@/doxygen-awesome.css
+HTML_COLORSTYLE        = LIGHT
+
+# Other formats
+GENERATE_LATEX         = NO
+GENERATE_MAN           = NO
+GENERATE_RTF           = NO
+
+# Extraction settings
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+
+# Documentation quality
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+
+# File patterns
+FILE_PATTERNS          = *.c *.h *.cpp *.hpp *.md
+
+# Optimization
+OPTIMIZE_OUTPUT_FOR_C  = YES
+INPUT +=  @CMAKE_CURRENT_SOURCE_DIR@/README.md
+USE_MDFILE_AS_MAINPAGE = README.md
+FULL_PATH_NAMES = NO

@@ -1,0 +1,37 @@
+#ifndef FETCH_VERSION_H_
+#define FETCH_VERSION_H_
+
+/* Generated version information from Git */
+#define FETCH_VERSION "@FETCH_VERSION@"
+#define FETCH_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define FETCH_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define FETCH_VERSION_PATCH @PROJECT_VERSION_PATCH@
+
+/* Version string without 'v' prefix for numeric comparisons */
+#define FETCH_VERSION_STRING "@PROJECT_VERSION@"
+
+/* Build information */
+#define FETCH_BUILD_TYPE "@CMAKE_BUILD_TYPE@"
+
+/** @brief Numeric version for comparisons (MMmmpp format) */
+#define FETCH_VERSION_NUMBER                                       \
+    ((FETCH_VERSION_MAJOR * 10000) + (FETCH_VERSION_MINOR * 100) + \
+     FETCH_VERSION_PATCH)
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+    /* Function to get version at runtime */
+    const char *fetch_get_version(void);
+    const char *fetch_get_version_string(void);
+    int fetch_get_version_major(void);
+    int fetch_get_version_minor(void);
+    int fetch_get_version_patch(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* FETCH_VERSION_H_ */
