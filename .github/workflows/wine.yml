@@ -48,7 +48,7 @@ jobs:
             -DLIBFETCH_BUILD_TESTS=ON \
             -DLIBFETCH_ENABLE_TLS=ON \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}\\scripts\\buildsystems\\vcpkg.cmake \
+            -DCMAKE_TOOLCHAIN_FILE=C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake \
             -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }}
 
       - name: Build project
