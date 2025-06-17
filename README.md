@@ -18,6 +18,21 @@ The event loop model is cooperative and application-controlled. There are no bac
 
 Connection management includes HTTP/1.1 keep-alive support and connection pooling to minimize overhead for multiple requests to the same host. TLS support is optional and can be disabled at compile time for environments where HTTPS is not required.
 
+## TLS Certificate Handling
+
+When TLS support is enabled (`LIBFETCH_ENABLE_TLS=ON`), libfetch automatically loads and validates certificates from platform-specific certificate stores:
+
+- **Windows**: Loads trusted root certificates from the Windows Certificate Store ("ROOT" store), validating certificate expiry and key usage permissions
+- **macOS**: Uses both Security Framework anchor certificates and system keychain certificates, with proper validation of certificate chains and expiry
+- **Linux/Unix**: Attempts to load certificates from common system locations including:
+  - `/etc/ssl/certs/ca-certificates.crt` (Debian/Ubuntu/Gentoo)
+  - `/etc/pki/tls/certs/ca-bundle.crt` (Fedora/RHEL)
+  - `/etc/ssl/ca-bundle.pem` (OpenSUSE)
+  - Additional distribution-specific paths
+- **Android**: Includes Android-specific certificate paths (`/system/etc/security/cacerts`)
+
+If no certificates are found in standard locations, the library falls back to OpenSSL's default certificate verification paths. This ensures HTTPS connections are properly validated without requiring manual certificate configuration in most environments.
+
 ## Current Limitations
 
 Most request and response bodies are handled in contiguous memory buffers. While file streaming is supported for uploads, it currently uses blocking I/O rather than overlapped operations. Full end-to-end streaming via the WHATWG Streams specification is planned for future versions, which would allow request and response bodies to be readable streams with non-blocking file I/O.
@@ -61,8 +76,11 @@ int main() {
 
 ## Prerequisites
 - CMake 4+
-- C11 compiler (GCC, Clang, or MSVC)
+- C11 compiler (GCC, Clang, or MSVC with atomics enabled)
 - Git
+- OpenSSL (required when TLS support is enabled)
+
+**Note for MSVC users**: Ensure that C11 atomics are enabled in your compiler settings. This typically requires Visual Studio 2022 or later with the `/std:c11` or `/std:c17` flag.
 
 ## Basic Build
 
@@ -92,3 +110,25 @@ cmake --build . --target run_tests
 ```bash
 cmake --build . --target install
 ```
+
+## License
+
+libfetch is licensed under the MIT License.
+
+### Third-Party Dependencies
+
+- **[ada-url](https://github.com/ada-url/ada)**: Used for WHATWG compliant URL parsing
+- **[picohttpparser](https://github.com/h2o/picohttpparser)**: Used for HTTP response parsing (modified to support ARM/NEON intrinsics with software fallback)
+- **OpenSSL**: Required when TLS support is enabled
+
+Please refer to the respective projects for their licensing terms.
+
+## Project Status & Disclaimer
+
+**Early Development Warning**: This project is in early development and is currently suitable primarily for experimental and specific production use-cases. While functional, it has not undergone extensive real-world testing across all platforms and scenarios.
+
+We welcome feedback and contributions to help identify and resolve potential performance or security issues. If you encounter bugs, performance bottlenecks, or security concerns, please open an issue or submit a pull request.
+
+**Scope & Goals**: libfetch is not intended as a replacement for [curl](https://curl.se). There are no active plans to implement HTTP/2 or HTTP/3 support. This library was primarily created to serve as the HTTP driver for the [hako JavaScript engine](https://github.com/andrewmd5/hako) and other novel embedded use cases where a lightweight, controllable HTTP client is preferred over a full-featured solution.
+
+For production applications requiring comprehensive HTTP protocol support, battle-tested reliability, or HTTP/2+ capabilities, we recommend using established libraries like libcurl.
