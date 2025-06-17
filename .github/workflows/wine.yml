@@ -13,6 +13,9 @@ jobs:
     
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows-static
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VCPKG_FEATURE_FLAGS: "binarycaching"
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\\vcpkg_cache,readwrite
 
     steps:
       - name: Checkout repository
@@ -22,6 +25,13 @@ jobs:
 
       - name: Setup CMake
         uses: lukka/get-cmake@latest
+
+      - name: Restore vcpkg cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\\vcpkg_cache
+          key: vcpkg-x64-windows-static-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-d-
 
       - name: Install OpenSSL via vcpkg
         uses: lukka/run-vcpkg@b3dd708d38df5c856fe1c18dc0d59ab771f93921
@@ -38,7 +48,7 @@ jobs:
             -DLIBFETCH_BUILD_TESTS=ON \
             -DLIBFETCH_ENABLE_TLS=ON \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake \
+            -DCMAKE_TOOLCHAIN_FILE=${{ env.VCPKG_ROOT }}\\scripts\\buildsystems\\vcpkg.cmake \
             -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }}
 
       - name: Build project
@@ -49,8 +59,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: build/tests/Release/test_libfetch.exe
+          path: build/Release/test_libfetch.exe
           retention-days: 1
+
+      - name: Save vcpkg cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}\\vcpkg_cache
+          key: vcpkg-x64-windows-static-${{ hashFiles('vcpkg.json') }}
 
   test-wine:
     needs: build-windows
