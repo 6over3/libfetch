@@ -60,7 +60,7 @@ jobs:
         with:
           name: windows-exe
           path: build/Release/test_libfetch.exe
-          retention-days: 1
+          retention-days: 7
 
       - name: Save vcpkg cache
         uses: actions/cache/save@v4

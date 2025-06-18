@@ -47,7 +47,10 @@ jobs:
     runs-on: ${{ inputs.runner }}
     
     env:
-      VCPKG_DEFAULT_TRIPLET: ${{ (contains(inputs.runner, 'arm64') || contains(inputs.runner, 'macos-latest')) && 'arm64-windows-static' || 'x64-windows-static' }}
+      VCPKG_DEFAULT_TRIPLET: ${{ (contains(inputs.runner, 'arm64') || contains(inputs.runner, 'macos-latest')) && (startsWith(inputs.runner, 'win') && 'arm64-windows-static' || 'arm64-linux') || (startsWith(inputs.runner, 'win') && 'x64-windows-static' || 'x64-linux') }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VCPKG_FEATURE_FLAGS: "binarycaching"
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/vcpkg_cache,readwrite
 
     steps:
       - name: Checkout repository
@@ -55,44 +58,36 @@ jobs:
         with:
           submodules: 'recursive'
           
-
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
-      - name: Install/Update OpenSSL (Linux)
+      - name: Restore vcpkg cache
+        if: ${{ inputs.tls_enabled && (startsWith(inputs.runner, 'win') || startsWith(inputs.runner, 'ubuntu') || startsWith(inputs.runner, 'linux')) }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg_cache
+          key: vcpkg-${{ env.VCPKG_DEFAULT_TRIPLET }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ env.VCPKG_DEFAULT_TRIPLET }}-
+            vcpkg-
+
+      - name: Install build dependencies (Linux)
         if: ${{ inputs.tls_enabled && (startsWith(inputs.runner, 'ubuntu') || startsWith(inputs.runner, 'linux')) }}
         shell: bash
         run: |
-          # Update package lists and install build dependencies
           sudo apt-get update -qq
-          sudo apt-get install -qq -y build-essential curl
-          
-          # Download OpenSSL 3.5.0 source code
-          curl -sL https://github.com/openssl/openssl/releases/download/openssl-3.5.0/openssl-3.5.0.tar.gz | tar xz
-          
-          # Build and install OpenSSL
-          cd openssl-3.5.0
-          ./Configure --prefix=/usr/local/ssl --openssldir=/usr/local/ssl '-Wl,-rpath,$(LIBRPATH)' >/dev/null
-          make -j$(nproc) >/dev/null
-          sudo make install >/dev/null
-          
-          # Update system paths
-          echo "/usr/local/ssl/lib" | sudo tee /etc/ld.so.conf.d/openssl.conf >/dev/null
-          sudo ldconfig
-          
-          # Make environment variables available to subsequent steps
-          echo "PATH=/usr/local/ssl/bin:$PATH" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=/usr/local/ssl/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=/usr/local/ssl/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
-          echo "OPENSSL_ROOT_DIR=/usr/local/ssl" >> $GITHUB_ENV
-          
-          # Verify installation (only show version)
-          /usr/local/ssl/bin/openssl version
-          
-          # Clean up
-          cd .. && rm -rf openssl-3.5.0
+          sudo apt-get install -qq -y build-essential curl zip unzip tar pkg-config
 
-      - name: Install OpenSSL (Windows)
+      - name: Install OpenSSL via vcpkg (Linux)
+        if: ${{ inputs.tls_enabled && (startsWith(inputs.runner, 'ubuntu') || startsWith(inputs.runner, 'linux')) }}
+        uses: lukka/run-vcpkg@b3dd708d38df5c856fe1c18dc0d59ab771f93921
+        with:
+          vcpkgDirectory: /usr/local/share/vcpkg
+          vcpkgJsonGlob: '**/vcpkg.json'
+          vcpkgGitCommitId: 'ef7dbf94b9198bc58f45951adcf1f041fcbc5ea0'
+          runVcpkgInstall: true
+
+      - name: Install OpenSSL via vcpkg (Windows)
         if: ${{ inputs.tls_enabled && startsWith(inputs.runner, 'win') }}
         uses: lukka/run-vcpkg@b3dd708d38df5c856fe1c18dc0d59ab771f93921
         with:
@@ -125,7 +120,9 @@ jobs:
               CMAKE_ARGS+=("-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)")
             elif [[ "${{ runner.os }}" == "Windows" ]]; then
               CMAKE_ARGS+=("-DCMAKE_TOOLCHAIN_FILE=C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake")
-              # Explicitly set the vcpkg triplet for static linking
+              CMAKE_ARGS+=("-DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }}")
+            elif [[ "${{ runner.os }}" == "Linux" ]]; then
+              CMAKE_ARGS+=("-DCMAKE_TOOLCHAIN_FILE=/usr/local/share/vcpkg/scripts/buildsystems/vcpkg.cmake")
               CMAKE_ARGS+=("-DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }}")
             fi
           else
@@ -156,6 +153,13 @@ jobs:
           BUILD_TYPE="${{ inputs.build_type || 'Release' }}"
           echo "=== Running tests (Build type: $BUILD_TYPE) ==="
           cmake --build build --config $BUILD_TYPE --target run_tests
+
+      - name: Save vcpkg cache
+        if: ${{ inputs.tls_enabled && (startsWith(inputs.runner, 'win') || startsWith(inputs.runner, 'ubuntu') || startsWith(inputs.runner, 'linux')) }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg_cache
+          key: vcpkg-${{ env.VCPKG_DEFAULT_TRIPLET }}-${{ hashFiles('vcpkg.json') }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
