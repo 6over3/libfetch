@@ -1,0 +1,101 @@
+name: Build Windows & Test with Wine
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+    
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows-static
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VCPKG_FEATURE_FLAGS: "binarycaching"
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\\vcpkg_cache,readwrite
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Restore vcpkg cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\\vcpkg_cache
+          key: vcpkg-x64-windows-static-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-d-
+
+      - name: Install OpenSSL via vcpkg
+        uses: lukka/run-vcpkg@b3dd708d38df5c856fe1c18dc0d59ab771f93921
+        with:
+          vcpkgDirectory: C:\\vcpkg
+          vcpkgJsonGlob: '**/vcpkg.json'
+          vcpkgGitCommitId: 'ef7dbf94b9198bc58f45951adcf1f041fcbc5ea0'
+          runVcpkgInstall: true
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          cmake -B build -S . \
+            -DLIBFETCH_BUILD_TESTS=ON \
+            -DLIBFETCH_ENABLE_TLS=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake \
+            -DVCPKG_TARGET_TRIPLET=${{ env.VCPKG_DEFAULT_TRIPLET }}
+
+      - name: Build project
+        shell: bash
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: build/Release/test_libfetch.exe
+          retention-days: 7
+
+      - name: Save vcpkg cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}\\vcpkg_cache
+          key: vcpkg-x64-windows-static-${{ hashFiles('vcpkg.json') }}
+
+  test-wine:
+    needs: build-windows
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Download Windows executable
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: ./
+
+      - name: Install Wine
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y wine64
+          wine --version
+
+      - name: Set up Go for httpbin
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Start httpbin server
+        run: go run github.com/mccutchen/go-httpbin/v2/cmd/go-httpbin@latest -port 8080 &
+
+      - name: Run tests via Wine
+        env:
+          WINEDEBUG: -all
+        run: |
+          chmod +x test_libfetch.exe
+          wine test_libfetch.exe
